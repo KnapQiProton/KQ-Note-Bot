@@ -25,6 +25,8 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="hapus", description="Hapus transaksi (/hapus <ID>)"),
         BotCommand(command="split", description="Bagi tagihan (/split <nominal> <orang>)"),
         BotCommand(command="budget", description="Set limit budget bulanan"),
+        BotCommand(command="backup", description="Download file backup database (.json)"),
+        BotCommand(command="restore", description="Restore data dari file backup"),
         BotCommand(command="export", description="Download data dalam format .csv"),
     ]
     await bot.set_my_commands(commands)
