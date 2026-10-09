@@ -2,6 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from calendar import monthrange
 from aiogram import Router, F
+from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from sqlalchemy import select, desc, func
 from bot.config import settings
@@ -151,6 +152,7 @@ async def handle_split_record_callback(callback: CallbackQuery):
     )
     await callback.answer()
 
+@router.message(Command("undo"))
 @router.message(F.text == "/undo")
 async def handle_undo(message: Message):
     async with async_session() as session:
@@ -179,3 +181,32 @@ async def handle_undo(message: Message):
         f"❌ Dihapus: *{format_rupiah(last_expense.amount)}* ({last_expense.description})",
         parse_mode="Markdown"
     )
+
+@router.message(Command("hapus", "delete"))
+async def handle_delete_expense(message: Message):
+    args = message.text.split()[1:]
+    if not args or not args[0].isdigit():
+        await message.reply(
+            "Formatnya gini ya kak: `/hapus <ID>`\n"
+            "Contoh: `/hapus 5`\n"
+            "💡 _Cek nomor ID lewat command_ `/list` ૮ ˶- ﻌ -˶ ა",
+            parse_mode="Markdown"
+        )
+        return
+
+    expense_id = int(args[0])
+    async with async_session() as session:
+        expense = await session.get(Expense, expense_id)
+        if not expense or expense.user_id != message.from_user.id or expense.is_deleted:
+            await message.reply(f"Transaksi ID #{expense_id} tidak ditemukan atau sudah dihapus kak (๑> <๑)")
+            return
+
+        expense.is_deleted = True
+        await session.commit()
+
+    await message.reply(
+        f"Yeay! Transaksi ID *#{expense_id}* berhasil dihapus (づ ᴗ _ᴗ)づ♡\n"
+        f"❌ *{format_rupiah(expense.amount)}* ({expense.description})",
+        parse_mode="Markdown"
+    )
+

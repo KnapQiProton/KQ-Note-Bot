@@ -12,10 +12,13 @@ Bot Telegram interaktif dan cerdas untuk pencatatan keuangan harian dengan antar
    - `1.5jt bayar kosan`
    - `kemarin 15.000 print #kuliah` *(otomatis H-1)*
 2. **Kategori via Inline Keyboard:** Memilih kategori secara instan sebelum data dikonfirmasi ke database.
-3. **Rekap Pengeluaran:**
+3. **List Riwayat & Hapus:**
+   - `/list` : Melihat 10 riwayat transaksi terakhir lengkap dengan ID.
+   - `/hapus <ID>` : Menghapus transaksi lama berdasarkan ID (misal: `/hapus 5`).
+   - `/undo` : Membatalkan transaksi paling terakhir secara instan.
+4. **Rekap Pengeluaran:**
    - `/hari_ini` : Rekap per kategori hari ini
    - `/bulan_ini` : Rekap per kategori bulan ini
-4. **Koreksi Data:** `/undo` untuk membatalkan entri transaksi terakhir.
 5. **Split Bill:** `/split <nominal> <jumlah orang>` dengan tombol instan untuk mencatat porsi sendiri ke database.
 6. **Budgeting Alert:** Notifikasi otomatis jika pengeluaran bulanan menyentuh 80% atau 100% dari batas `/budget <nominal>`.
 7. **Export Data:** `/export` untuk mendownload riwayat transaksi dalam bentuk `.csv`.

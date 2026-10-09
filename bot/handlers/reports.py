@@ -5,13 +5,51 @@ from calendar import monthrange
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message, BufferedInputFile
-from sqlalchemy import select, func
+from sqlalchemy import select, func, desc
 from bot.database.session import async_session
 from bot.database.models import Expense
 from bot.utils.formatters import format_rupiah
 from bot.utils.parser import get_current_time
 
 router = Router()
+
+@router.message(Command("list", "riwayat"))
+async def handle_list_expenses(message: Message):
+    async with async_session() as session:
+        stmt = (
+            select(Expense)
+            .where(
+                Expense.user_id == message.from_user.id,
+                Expense.is_confirmed == True,
+                Expense.is_deleted == False
+            )
+            .order_by(desc(Expense.date), desc(Expense.id))
+            .limit(10)
+        )
+        expenses = (await session.execute(stmt)).scalars().all()
+
+    if not expenses:
+        await message.reply("Belum ada catatan pengeluaran kak ૮ ˶ᵔ ᵕ ᵔ˶ ა", parse_mode="Markdown")
+        return
+
+    items_text = []
+    for exp in expenses:
+        date_str = exp.date.strftime("%d/%m")
+        cat_str = f"[{exp.category or 'Lainnya'}]"
+        tag_str = f" `#{exp.tag}`" if exp.tag else ""
+        items_text.append(
+            f"🆔 *#{exp.id}* • {date_str} {cat_str}\n"
+            f"   💰 *{format_rupiah(exp.amount)}* - {exp.description}{tag_str}"
+        )
+
+    list_body = "\n\n".join(items_text)
+    text = (
+        f"📋 *10 Transaksi Terakhir Kamu* ૮ ˶ᵔ ᵕ ᵔ˶ ა\n\n"
+        f"{list_body}\n\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"💡 _Mau hapus salah satu? Ketik_ `/hapus <ID>`, _misal:_ `/hapus {expenses[0].id}` (｡•̀ᴗ-)✧"
+    )
+    await message.reply(text, parse_mode="Markdown")
 
 @router.message(Command("hari_ini"))
 async def handle_report_today(message: Message):

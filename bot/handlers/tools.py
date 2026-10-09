@@ -21,12 +21,14 @@ async def handle_start(message: Message):
         "• `1.5jt sewa kosan`\n"
         "• `print materi 15.000 #kuliah`\n\n"
         "🛠 *Command yang tersedia:*\n"
+        "• `/list` : Lihat 10 riwayat transaksi terakhir beserta ID\n"
+        "• `/hapus <ID>` : Hapus transaksi tertentu (misal: `/hapus 5`)\n"
+        "• `/undo` : Batalkan transaksi paling terakhir\n"
         "• `/hari_ini` : Rekap pengeluaran hari ini\n"
         "• `/bulan_ini` : Rekap pengeluaran bulan ini\n"
-        "• `/undo` : Batalkan catatan terakhir\n"
         "• `/split <nominal> <orang>` : Hitung bagi tagihan\n"
         "• `/budget <nominal>` : Pasang batas pengeluaran bulanan\n"
-        "• `/export` : Download laporan dalam bentuk file .csv"
+        "• `/export` : Download laporan dalam format .csv"
     )
     await message.reply(text, parse_mode="Markdown")
 
