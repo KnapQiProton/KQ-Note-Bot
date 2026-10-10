@@ -7,6 +7,7 @@ from sqlalchemy import select
 from bot.database.session import async_session
 from bot.database.models import Expense, Budget
 from bot.utils.parser import parse_expense_text, get_current_time
+from bot.config import settings
 from bot.utils.formatters import format_rupiah
 from bot.keyboards.inline import get_split_bill_keyboard
 
@@ -33,7 +34,20 @@ async def handle_start(message: Message):
         "• `/budget <nominal>` : Pasang batas pengeluaran bulanan\n"
         "• `/backup` : Download file backup database (.json)\n"
         "• `/restore` : Pulihkan database dari file backup\n"
-        "• `/export` : Download laporan dalam format .csv"
+        "• `/export` : Download laporan dalam format .csv\n"
+        "• `/web` : Buka Web Dashboard grafik visual 📊"
+    )
+    await message.reply(text, parse_mode="Markdown")
+
+@router.message(Command("web", "dashboard"))
+async def handle_web_dashboard(message: Message):
+    url = settings.dashboard_url
+    text = (
+        f"🌐 *Web Dashboard Keuangan Kamu* ૮ ˶ᵔ ᵕ ᵔ˶ ა\n\n"
+        f"Klik link di bawah ini untuk melihat grafik visual dan tabel transaksi lengkap:\n"
+        f"👉 [Buka Web Dashboard]({url})\n\n"
+        f"🔗 URL: `{url}`\n\n"
+        f"💡 _Bisa dibuka dari browser HP maupun laptop kapan saja!_ (｡•̀ᴗ-)✧"
     )
     await message.reply(text, parse_mode="Markdown")
 

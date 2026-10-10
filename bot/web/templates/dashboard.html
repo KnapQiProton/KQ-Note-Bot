@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌸 KQ-Note Dashboard Keuangan</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+  <!-- Top Navbar -->
+  <header class="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center shadow-md shadow-pink-500/20 text-white font-bold text-lg">
+          🌸
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+            KQ-Note Keuangan
+          </h1>
+          <p class="text-xs text-slate-400">Personal Expense Tracker ૮ ˶ᵔ ᵕ ᵔ˶ ა</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-100">
+          ● Live Data
+        </span>
+        <a href="https://t.me/KQ_Noted_Bot" target="_blank" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-all shadow-sm">
+          <span>Buka Telegram</span>
+          <span>↗</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- KPI Summary Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      
+      <!-- Card 1: Pengeluaran Bulan Ini -->
+      <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Bulan Ini</span>
+          <div class="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm font-bold">
+            💰
+          </div>
+        </div>
+        <div class="text-2xl font-extrabold text-slate-900" id="kpi-month">Rp{{ "{:,.0f}".format(total_month).replace(",", ".") }}</div>
+        <p class="text-xs text-slate-400 mt-1">Total pengeluaran bulan berjalan</p>
+      </div>
+
+      <!-- Card 2: Pengeluaran Hari Ini -->
+      <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Hari Ini</span>
+          <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-sm font-bold">
+            ⚡
+          </div>
+        </div>
+        <div class="text-2xl font-extrabold text-slate-900" id="kpi-today">Rp{{ "{:,.0f}".format(total_today).replace(",", ".") }}</div>
+        <p class="text-xs text-slate-400 mt-1">Total transaksi tercatat hari ini</p>
+      </div>
+
+      <!-- Card 3: Budget Bulanan -->
+      <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Budget Bulanan</span>
+          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-sm font-bold">
+            🎯
+          </div>
+        </div>
+        <div class="text-2xl font-extrabold text-slate-900">
+          {% if budget_limit > 0 %}
+            Rp{{ "{:,.0f}".format(budget_limit).replace(",", ".") }}
+          {% else %}
+            <span class="text-sm font-medium text-slate-400">Belum diset</span>
+          {% endif %}
+        </div>
+        {% if budget_limit > 0 %}
+          <div class="w-full bg-slate-100 rounded-full h-2 mt-3 overflow-hidden">
+            <div class="h-2 rounded-full {{ 'bg-red-500' if budget_percent >= 100 else ('bg-amber-500' if budget_percent >= 80 else 'bg-emerald-500') }}" style="width: {{ [budget_percent, 100]|min }}%"></div>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1 flex justify-between">
+            <span>Terpakai: {{ "%.1f"|format(budget_percent) }}%</span>
+            <span>Sisa: Rp{{ "{:,.0f}".format([budget_limit - total_month, 0]|max).replace(",", ".") }}</span>
+          </p>
+        {% else %}
+          <p class="text-xs text-slate-400 mt-1">Gunakan /budget di bot untuk atur limit</p>
+        {% endif %}
+      </div>
+
+      <!-- Card 4: Total Transaksi -->
+      <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Jumlah Catatan</span>
+          <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-sm font-bold">
+            📝
+          </div>
+        </div>
+        <div class="text-2xl font-extrabold text-slate-900">{{ count_month }}</div>
+        <p class="text-xs text-slate-400 mt-1">Transaksi terkonfirmasi bulan ini</p>
+      </div>
+
+    </section>
+
+    <!-- Visual Charts Grid -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Chart 1: Donut Kategori -->
+      <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div class="mb-4">
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>🥧</span> Proporsi Pengeluaran per Kategori
+          </h2>
+          <p class="text-xs text-slate-400">Pembagian persentase dana berdasarkan kategori bulan ini</p>
+        </div>
+        <div class="relative flex items-center justify-center my-auto min-h-[260px]">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Tren 7 Hari Terakhir -->
+      <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div class="mb-4">
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>📊</span> Tren Pengeluaran 7 Hari Terakhir
+          </h2>
+          <p class="text-xs text-slate-400">Grafik pengeluaran harian sepekan ke belakang</p>
+        </div>
+        <div class="relative flex items-center justify-center my-auto min-h-[260px]">
+          <canvas id="weeklyChart"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Data Table Section -->
+    <section class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+      
+      <!-- Table Header & Controls -->
+      <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>📋</span> Riwayat Transaksi Terbaru
+          </h2>
+          <p class="text-xs text-slate-400">Daftar transaksi yang tercatat secara real-time dari Telegram</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- Search input -->
+          <div class="relative">
+            <input 
+              type="text" 
+              id="search-input" 
+              placeholder="Cari transaksi atau #tag..." 
+              class="w-full sm:w-64 pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+            >
+            <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Content -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm" id="expense-table">
+          <thead class="bg-slate-50/70 text-slate-400 uppercase text-[11px] font-semibold border-b border-slate-100">
+            <tr>
+              <th class="py-3.5 px-6">ID</th>
+              <th class="py-3.5 px-6">Tanggal</th>
+              <th class="py-3.5 px-6">Kategori</th>
+              <th class="py-3.5 px-6">Deskripsi & Tag</th>
+              <th class="py-3.5 px-6 text-right">Nominal</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-slate-700">
+            {% if expenses %}
+              {% for exp in expenses %}
+                <tr class="hover:bg-slate-50/50 transition-colors">
+                  <td class="py-4 px-6 text-xs text-slate-400 font-mono">#{{ exp.id }}</td>
+                  <td class="py-4 px-6 text-xs text-slate-500">
+                    {{ exp.date.strftime('%d %b %Y, %H:%M') }}
+                  </td>
+                  <td class="py-4 px-6">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium 
+                      {% if exp.category == 'Makan' %}bg-orange-50 text-orange-600 border border-orange-100
+                      {% elif exp.category == 'Transport' %}bg-blue-50 text-blue-600 border border-blue-100
+                      {% elif exp.category == 'Belanja' %}bg-purple-50 text-purple-600 border border-purple-100
+                      {% elif exp.category == 'Tagihan' %}bg-amber-50 text-amber-600 border border-amber-100
+                      {% elif exp.category == 'Hiburan' %}bg-pink-50 text-pink-600 border border-pink-100
+                      {% else %}bg-slate-100 text-slate-600 border border-slate-200{% endif %}">
+                      {{ exp.category or 'Lainnya' }}
+                    </span>
+                  </td>
+                  <td class="py-4 px-6 font-medium text-slate-800">
+                    {{ exp.description }}
+                    {% if exp.tag %}
+                      <span class="ml-1 text-xs text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md font-mono">#{{ exp.tag }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="py-4 px-6 text-right font-bold text-slate-900">
+                    Rp{{ "{:,.0f}".format(exp.amount).replace(",", ".") }}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="5" class="py-12 text-center text-slate-400 text-sm">
+                  Belum ada transaksi yang tercatat ૮ ˶ᵔ ᵕ ᵔ˶ ა
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="max-w-7xl mx-auto px-4 py-8 text-center text-xs text-slate-400">
+    <p>Dibuat dengan cinta untuk KQ-Note Bot • Powered by FastAPI & aiogram (づ ᴗ _ᴗ)づ♡</p>
+  </footer>
+
+  <!-- Chart.js Scripts -->
+  <script>
+    // 1. Data Kategori
+    const categoryLabels = {{ category_labels | tojson }};
+    const categoryValues = {{ category_values | tojson }};
+
+    if (categoryLabels.length > 0) {
+      new Chart(document.getElementById('categoryChart'), {
+        type: 'doughnut',
+        data: {
+          labels: categoryLabels,
+          datasets: [{
+            data: categoryValues,
+            backgroundColor: [
+              '#fb923c', // Makan (Orange)
+              '#60a5fa', // Transport (Blue)
+              '#c084fc', // Belanja (Purple)
+              '#facc15', // Tagihan (Yellow)
+              '#f472b6', // Hiburan (Pink)
+              '#34d399', // Kesehatan (Green)
+              '#818cf8', // Edukasi (Indigo)
+              '#94a3b8'  // Lainnya (Gray)
+            ],
+            borderWidth: 3,
+            borderColor: '#ffffff',
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                font: { family: 'Plus Jakarta Sans', size: 12 },
+                padding: 16
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const val = context.raw || 0;
+                  return ' Rp' + Number(val).toLocaleString('id-ID');
+                }
+              }
+            }
+          },
+          cutout: '65%'
+        }
+      });
+    } else {
+      document.getElementById('categoryChart').parentElement.innerHTML = 
+        '<div class="text-xs text-slate-400 italic">Belum ada data kategori bulan ini ૮ ˶- ﻌ -˶ ა</div>';
+    }
+
+    // 2. Data 7 Hari Terakhir
+    const weeklyLabels = {{ weekly_labels | tojson }};
+    const weeklyValues = {{ weekly_values | tojson }};
+
+    new Chart(document.getElementById('weeklyChart'), {
+      type: 'bar',
+      data: {
+        labels: weeklyLabels,
+        datasets: [{
+          label: 'Pengeluaran (Rp)',
+          data: weeklyValues,
+          backgroundColor: '#fda4af', // Rose-300
+          hoverBackgroundColor: '#f43f5e', // Rose-500
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const val = context.raw || 0;
+                return ' Rp' + Number(val).toLocaleString('id-ID');
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, color: '#94a3b8' }
+          },
+          y: {
+            grid: { color: '#f1f5f9' },
+            ticks: {
+              font: { family: 'Plus Jakarta Sans', size: 10 },
+              color: '#94a3b8',
+              callback: function(value) {
+                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'jt';
+                if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+                return value;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // 3. Simple Client Search
+    const searchInput = document.getElementById('search-input');
+    const tableBody = document.querySelector('#expense-table tbody');
+    
+    if (searchInput) {
+      searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        const rows = tableBody.querySelectorAll('tr');
+        rows.forEach(row => {
+          const text = row.innerText.toLowerCase();
+          if (text.includes(query)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+    }
+  </script>
+
+</body>
+</html>

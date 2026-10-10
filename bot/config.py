@@ -20,6 +20,17 @@ class Settings:
     BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     TIMEZONE: str = os.getenv("TIMEZONE", "Asia/Jakarta")
+    PORT: int = int(os.getenv("PORT", "8080"))
+    WEB_APP_URL: str = os.getenv("WEB_APP_URL", "")
+
+    @property
+    def dashboard_url(self) -> str:
+        if self.WEB_APP_URL:
+            return self.WEB_APP_URL.rstrip("/")
+        railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+        if railway_domain:
+            return f"https://{railway_domain}"
+        return f"http://localhost:{self.PORT}"
 
     @property
     def async_database_url(self) -> str:

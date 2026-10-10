@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import sys
+import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from bot.config import settings
 from bot.database.session import init_db
 from bot.handlers import expense, reports, tools
+from bot.web.app import app as web_app
 
 # Konfigurasi Logging
 logging.basicConfig(
@@ -18,6 +20,7 @@ async def setup_bot_commands(bot: Bot):
     """Mendaftarkan menu tombol slash command ke Telegram."""
     commands = [
         BotCommand(command="start", description="Panduan & cara pakai bot"),
+        BotCommand(command="web", description="Buka Web Dashboard visual 📊"),
         BotCommand(command="list", description="Daftar 10 transaksi terakhir"),
         BotCommand(command="hari_ini", description="Rekap pengeluaran hari ini"),
         BotCommand(command="bulan_ini", description="Rekap pengeluaran bulan ini"),
@@ -53,13 +56,28 @@ async def main():
     # Daftarkan menu command ke tombol Menu Telegram
     await setup_bot_commands(bot)
 
-    logger.info("Bot Telegram siap berjalan! ૮ ˶ᵔ ᵕ ᵔ˶ ა")
-
     # Bersihkan webhook / pending updates sebelumnya
     await bot.delete_webhook(drop_pending_updates=True)
 
+    # Konfigurasi Web Dashboard Server (FastAPI)
+    web_config = uvicorn.Config(
+        web_app,
+        host="0.0.0.0",
+        port=settings.PORT,
+        log_level="warning",
+        access_log=False
+    )
+    server = uvicorn.Server(web_config)
+
+    logger.info(f"🌐 Web Dashboard berjalan di port {settings.PORT}!")
+    logger.info(f"🤖 Bot Telegram polling aktif! ૮ ˶ᵔ ᵕ ᵔ˶ ა")
+
     try:
-        await dp.start_polling(bot)
+        # Jalankan Web Server dan Bot Telegram secara bersamaan
+        await asyncio.gather(
+            server.serve(),
+            dp.start_polling(bot)
+        )
     finally:
         await bot.session.close()
 
@@ -67,4 +85,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot dimatikan secara aman. Sampai jumpa! (づ ᴗ _ᴗ)づ♡")
+        logger.info("Aplikasi dimatikan secara aman. Sampai jumpa! (づ ᴗ _ᴗ)づ♡")

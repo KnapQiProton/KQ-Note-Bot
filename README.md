@@ -21,7 +21,9 @@ Bot Telegram interaktif dan cerdas untuk pencatatan keuangan harian dengan antar
    - `/bulan_ini` : Rekap per kategori bulan ini
 5. **Split Bill:** `/split <nominal> <jumlah orang>` dengan tombol instan untuk mencatat porsi sendiri ke database.
 6. **Budgeting Alert:** Notifikasi otomatis jika pengeluaran bulanan menyentuh 80% atau 100% dari batas `/budget <nominal>`.
-7. **Export Data:** `/export` untuk mendownload riwayat transaksi dalam bentuk `.csv`.
+7. **Backup & Restore:** `/backup` dan `/restore` instan langsung via chat Telegram.
+8. **Web Dashboard Visual:** Halaman web interaktif modern dengan grafik Donut Kategori, Bar Chart Tren 7 Hari, KPI Cards, dan Live Search tabel transaksi (Command: `/web`).
+9. **Export Data:** `/export` untuk mendownload riwayat transaksi dalam bentuk `.csv`.
 
 ---
 
@@ -33,7 +35,7 @@ Bot Pencatat Keuangan/
 │   ├── handlers/
 │   │   ├── expense.py       # Handler teks natural, inline kategori, & /undo
 │   │   ├── reports.py       # /hari_ini, /bulan_ini, & /export (CSV)
-│   │   └── tools.py         # /start, /split, & /budget
+│   │   └── tools.py         # /start, /split, /budget, /web, /backup, /restore
 │   ├── keyboards/
 │   │   └── inline.py        # Inline keyboards Telegram
 │   ├── database/
@@ -42,10 +44,14 @@ Bot Pencatat Keuangan/
 │   ├── utils/
 │   │   ├── parser.py        # Ekstraktor teks nominal, waktu, & tag
 │   │   └── formatters.py    # Formatting rupiah & kaomoji
+│   ├── web/
+│   │   ├── templates/
+│   │   │   └── dashboard.html # Template Web Dashboard (Tailwind + Chart.js)
+│   │   └── app.py           # FastAPI Web Application & API
 │   └── config.py            # Konfigurasi Pydantic & Railway URL converter
-├── main.py                  # Entry point aplikasi
+├── main.py                  # Entry point (FastAPI Web + Aiogram Bot Polling)
 ├── requirements.txt         # Daftar pustaka Python
-├── Procfile                 # Worker runner untuk Railway
+├── Procfile                 # Web runner untuk Railway
 └── .env.example             # Contoh environment variables
 ```
 
