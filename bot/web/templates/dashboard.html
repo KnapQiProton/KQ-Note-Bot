@@ -3,19 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌸 KQ-Note Dashboard Keuangan</title>
+  <title>🌸 KQ-Note Dashboard & Manajemen Keuangan</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .modal-active { display: flex !important; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-5 right-5 z-50 transform transition-all duration-300 translate-y-[-150%] opacity-0 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-700">
+    <span id="toast-icon">✨</span>
+    <span id="toast-msg" class="text-sm font-medium">Berhasil disimpan!</span>
+  </div>
 
   <!-- Top Navbar -->
   <header class="bg-white/80 backdrop-blur-md sticky top-0 z-30 border-b border-slate-200/80">
@@ -28,16 +33,24 @@
           <h1 class="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
             KQ-Note Keuangan
           </h1>
-          <p class="text-xs text-slate-400">Personal Expense Tracker ૮ ˶ᵔ ᵕ ᵔ˶ ა</p>
+          <p class="text-xs text-slate-400">Dashboard & Manajemen Web ૮ ˶ᵔ ᵕ ᵔ˶ ა</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-600 border border-rose-100">
-          ● Live Data
-        </span>
-        <a href="https://t.me/KQ_Noted_Bot" target="_blank" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-all shadow-sm">
-          <span>Buka Telegram</span>
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button onclick="openExpenseModal()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold shadow-sm shadow-rose-500/20 transition-all">
+          <span>➕</span>
+          <span class="hidden sm:inline">Tambah</span> Transaksi
+        </button>
+        <button onclick="openBudgetModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all">
+          <span>🎯</span>
+          <span class="hidden sm:inline">Ubah</span> Budget
+        </button>
+        <a href="/export-csv" class="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all">
+          <span>📥</span> CSV
+        </a>
+        <a href="https://t.me/KQ_Noted_Bot" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-all shadow-sm">
+          <span>Bot Telegram</span>
           <span>↗</span>
         </a>
       </div>
@@ -58,7 +71,7 @@
             💰
           </div>
         </div>
-        <div class="text-2xl font-extrabold text-slate-900" id="kpi-month">Rp{{ "{:,.0f}".format(total_month).replace(",", ".") }}</div>
+        <div class="text-2xl font-extrabold text-slate-900">Rp{{ "{:,.0f}".format(total_month).replace(",", ".") }}</div>
         <p class="text-xs text-slate-400 mt-1">Total pengeluaran bulan berjalan</p>
       </div>
 
@@ -70,17 +83,17 @@
             ⚡
           </div>
         </div>
-        <div class="text-2xl font-extrabold text-slate-900" id="kpi-today">Rp{{ "{:,.0f}".format(total_today).replace(",", ".") }}</div>
+        <div class="text-2xl font-extrabold text-slate-900">Rp{{ "{:,.0f}".format(total_today).replace(",", ".") }}</div>
         <p class="text-xs text-slate-400 mt-1">Total transaksi tercatat hari ini</p>
       </div>
 
       <!-- Card 3: Budget Bulanan -->
-      <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+      <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow group relative">
         <div class="flex items-center justify-between mb-2">
           <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Budget Bulanan</span>
-          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-sm font-bold">
-            🎯
-          </div>
+          <button onclick="openBudgetModal()" class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-500 hover:bg-emerald-100 flex items-center justify-center text-sm font-bold transition-colors" title="Ubah Budget">
+            ✏️
+          </button>
         </div>
         <div class="text-2xl font-extrabold text-slate-900">
           {% if budget_limit > 0 %}
@@ -98,7 +111,7 @@
             <span>Sisa: Rp{{ "{:,.0f}".format([budget_limit - total_month, 0]|max).replace(",", ".") }}</span>
           </p>
         {% else %}
-          <p class="text-xs text-slate-400 mt-1">Gunakan /budget di bot untuk atur limit</p>
+          <p class="text-xs text-slate-400 mt-1 cursor-pointer text-rose-500 hover:underline" onclick="openBudgetModal()">+ Pasang target budget</p>
         {% endif %}
       </div>
 
@@ -147,29 +160,33 @@
 
     </section>
 
-    <!-- Data Table Section -->
+    <!-- Data Table & Management Section -->
     <section class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
       
       <!-- Table Header & Controls -->
       <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-            <span>📋</span> Riwayat Transaksi Terbaru
+            <span>📋</span> Riwayat Transaksi & Manajemen
           </h2>
-          <p class="text-xs text-slate-400">Daftar transaksi yang tercatat secara real-time dari Telegram</p>
+          <p class="text-xs text-slate-400">Kelola catatan keuangan langsung dari website (tambah, edit, hapus)</p>
         </div>
 
         <div class="flex items-center gap-3">
           <!-- Search input -->
-          <div class="relative">
+          <div class="relative w-full sm:w-64">
             <input 
               type="text" 
               id="search-input" 
               placeholder="Cari transaksi atau #tag..." 
-              class="w-full sm:w-64 pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+              class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
             >
             <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
           </div>
+
+          <button onclick="openExpenseModal()" class="px-3 py-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-semibold text-xs transition-colors shrink-0">
+            + Tambah
+          </button>
         </div>
       </div>
 
@@ -183,12 +200,13 @@
               <th class="py-3.5 px-6">Kategori</th>
               <th class="py-3.5 px-6">Deskripsi & Tag</th>
               <th class="py-3.5 px-6 text-right">Nominal</th>
+              <th class="py-3.5 px-6 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-slate-700">
             {% if expenses %}
               {% for exp in expenses %}
-                <tr class="hover:bg-slate-50/50 transition-colors">
+                <tr class="hover:bg-slate-50/50 transition-colors" id="row-{{ exp.id }}">
                   <td class="py-4 px-6 text-xs text-slate-400 font-mono">#{{ exp.id }}</td>
                   <td class="py-4 px-6 text-xs text-slate-500">
                     {{ exp.date.strftime('%d %b %Y, %H:%M') }}
@@ -200,6 +218,8 @@
                       {% elif exp.category == 'Belanja' %}bg-purple-50 text-purple-600 border border-purple-100
                       {% elif exp.category == 'Tagihan' %}bg-amber-50 text-amber-600 border border-amber-100
                       {% elif exp.category == 'Hiburan' %}bg-pink-50 text-pink-600 border border-pink-100
+                      {% elif exp.category == 'Kesehatan' %}bg-emerald-50 text-emerald-600 border border-emerald-100
+                      {% elif exp.category == 'Edukasi' %}bg-indigo-50 text-indigo-600 border border-indigo-100
                       {% else %}bg-slate-100 text-slate-600 border border-slate-200{% endif %}">
                       {{ exp.category or 'Lainnya' }}
                     </span>
@@ -213,12 +233,30 @@
                   <td class="py-4 px-6 text-right font-bold text-slate-900">
                     Rp{{ "{:,.0f}".format(exp.amount).replace(",", ".") }}
                   </td>
+                  <td class="py-4 px-6 text-center">
+                    <div class="inline-flex items-center gap-1.5">
+                      <button 
+                        onclick="editExpense({{ exp.id }}, {{ exp.amount }}, '{{ exp.category }}', '{{ exp.description }}', '{{ exp.tag or '' }}', '{{ exp.date.strftime('%Y-%m-%dT%H:%M') }}')" 
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        title="Edit transaksi"
+                      >
+                        ✏️
+                      </button>
+                      <button 
+                        onclick="deleteExpense({{ exp.id }})" 
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Hapus transaksi"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               {% endfor %}
             {% else %}
               <tr>
-                <td colspan="5" class="py-12 text-center text-slate-400 text-sm">
-                  Belum ada transaksi yang tercatat ૮ ˶ᵔ ᵕ ᵔ˶ ა
+                <td colspan="6" class="py-12 text-center text-slate-400 text-sm">
+                  Belum ada transaksi. Klik tombol <b>+ Tambah Transaksi</b> di atas untuk mencatat! ૮ ˶ᵔ ᵕ ᵔ˶ ა
                 </td>
               </tr>
             {% endif %}
@@ -230,14 +268,295 @@
 
   </main>
 
+  <!-- Modal: Tambah & Edit Transaksi -->
+  <div id="expense-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 transform transition-all">
+      <div class="flex items-center justify-between mb-5">
+        <h3 id="modal-title" class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <span>📝</span> Tambah Transaksi Baru
+        </h3>
+        <button onclick="closeExpenseModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-xs font-bold">
+          ✕
+        </button>
+      </div>
+
+      <form id="expense-form" onsubmit="saveExpense(event)" class="space-y-4">
+        <input type="hidden" id="form-id" value="">
+
+        <!-- Nominal -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Nominal (Rp)</label>
+          <input 
+            type="number" 
+            id="form-amount" 
+            required 
+            placeholder="Contoh: 25000" 
+            class="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 font-semibold"
+          >
+        </div>
+
+        <!-- Kategori -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Kategori</label>
+          <select 
+            id="form-category" 
+            required 
+            class="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+          >
+            <option value="Makan">🍔 Makan & Minum</option>
+            <option value="Transport">🛵 Transportasi</option>
+            <option value="Belanja">🛒 Belanja</option>
+            <option value="Tagihan">💡 Tagihan & Cicilan</option>
+            <option value="Hiburan">🎮 Hiburan</option>
+            <option value="Kesehatan">💊 Kesehatan</option>
+            <option value="Edukasi">📚 Edukasi</option>
+            <option value="Lainnya">✨ Lainnya</option>
+          </select>
+        </div>
+
+        <!-- Deskripsi -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Deskripsi / Catatan</label>
+          <input 
+            type="text" 
+            id="form-desc" 
+            required 
+            placeholder="Contoh: kopi susu kampus" 
+            class="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+          >
+        </div>
+
+        <!-- Tag & Tanggal (2 Kolom) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Tagar (Opsional)</label>
+            <input 
+              type="text" 
+              id="form-tag" 
+              placeholder="Contoh: nongkrong" 
+              class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">Waktu</label>
+            <input 
+              type="datetime-local" 
+              id="form-date" 
+              class="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-slate-600"
+            >
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="pt-3 flex gap-2">
+          <button type="button" onclick="closeExpenseModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors">
+            Batal
+          </button>
+          <button type="submit" id="btn-save-expense" class="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold shadow-md shadow-rose-500/20 transition-all">
+            Simpan Transaksi
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Ubah Budget Bulanan -->
+  <div id="budget-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl border border-slate-100 transform transition-all">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <span>🎯</span> Pasang Target Budget
+        </h3>
+        <button onclick="closeBudgetModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-xs font-bold">
+          ✕
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500 mb-4">Atur batas maksimal pengeluaran bulananmu agar bot bisa memberi peringatan saat hampir tembus!</p>
+
+      <form onsubmit="saveBudget(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1.5">Batas Budget Bulanan (Rp)</label>
+          <input 
+            type="number" 
+            id="budget-amount" 
+            required 
+            placeholder="Contoh: 2000000" 
+            value="{{ budget_limit|int if budget_limit > 0 else '' }}"
+            class="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-semibold"
+          >
+        </div>
+
+        <div class="pt-2 flex gap-2">
+          <button type="button" onclick="closeBudgetModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors">
+            Batal
+          </button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold shadow-md shadow-emerald-500/20 transition-all">
+            Simpan Budget
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="max-w-7xl mx-auto px-4 py-8 text-center text-xs text-slate-400">
-    <p>Dibuat dengan cinta untuk KQ-Note Bot • Powered by FastAPI & aiogram (づ ᴗ _ᴗ)づ♡</p>
+    <p>KQ-Note Keuangan • Terintegrasi Telegram Bot & FastAPI Dashboard (づ ᴗ _ᴗ)づ♡</p>
   </footer>
 
-  <!-- Chart.js Scripts -->
+  <!-- Scripts -->
   <script>
-    // 1. Data Kategori
+    // 1. Toast Notification Helper
+    function showToast(msg, icon = '✨') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').innerText = msg;
+      document.getElementById('toast-icon').innerText = icon;
+      toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-[-150%]', 'opacity-0');
+      }, 2500);
+    }
+
+    // 2. Modals Control
+    const expenseModal = document.getElementById('expense-modal');
+    const budgetModal = document.getElementById('budget-modal');
+
+    function openExpenseModal(isEdit = false) {
+      if (!isEdit) {
+        document.getElementById('modal-title').innerHTML = '<span>📝</span> Tambah Transaksi Baru';
+        document.getElementById('form-id').value = '';
+        document.getElementById('form-amount').value = '';
+        document.getElementById('form-category').value = 'Makan';
+        document.getElementById('form-desc').value = '';
+        document.getElementById('form-tag').value = '';
+        
+        // Default waktu sekarang
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('form-date').value = now.toISOString().slice(0, 16);
+      }
+      expenseModal.classList.add('modal-active');
+    }
+
+    function closeExpenseModal() {
+      expenseModal.classList.remove('modal-active');
+    }
+
+    function openBudgetModal() {
+      budgetModal.classList.add('modal-active');
+    }
+
+    function closeBudgetModal() {
+      budgetModal.classList.remove('modal-active');
+    }
+
+    // 3. Edit Expense Action
+    function editExpense(id, amount, category, desc, tag, dateStr) {
+      document.getElementById('modal-title').innerHTML = '<span>✏️</span> Edit Transaksi #' + id;
+      document.getElementById('form-id').value = id;
+      document.getElementById('form-amount').value = amount;
+      document.getElementById('form-category').value = category;
+      document.getElementById('form-desc').value = desc;
+      document.getElementById('form-tag').value = tag;
+      document.getElementById('form-date').value = dateStr;
+      openExpenseModal(true);
+    }
+
+    // 4. Save Expense (Create or Update)
+    async function saveExpense(e) {
+      e.preventDefault();
+      const id = document.getElementById('form-id').value;
+      const amount = parseFloat(document.getElementById('form-amount').value);
+      const category = document.getElementById('form-category').value;
+      const description = document.getElementById('form-desc').value;
+      const tag = document.getElementById('form-tag').value;
+      const date = document.getElementById('form-date').value;
+
+      const payload = { amount, category, description, tag, date };
+      const btn = document.getElementById('btn-save-expense');
+      btn.innerText = 'Menyimpan...';
+      btn.disabled = true;
+
+      try {
+        let res;
+        if (id) {
+          // Update
+          res = await fetch(`/api/expenses/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          // Create
+          res = await fetch('/api/expenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const data = await res.json();
+        if (res.ok) {
+          closeExpenseModal();
+          showToast(data.message || 'Berhasil disimpan!', '🎉');
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          alert('Gagal: ' + (data.detail || 'Terjadi kesalahan'));
+        }
+      } catch (err) {
+        alert('Terjadi error jaringan: ' + err.message);
+      } finally {
+        btn.innerText = 'Simpan Transaksi';
+        btn.disabled = false;
+      }
+    }
+
+    // 5. Delete Expense
+    async function deleteExpense(id) {
+      if (!confirm(`Yakin mau menghapus transaksi #${id}?`)) return;
+
+      try {
+        const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Transaksi berhasil dihapus!', '🗑️');
+          const row = document.getElementById(`row-${id}`);
+          if (row) row.remove();
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          alert('Gagal menghapus: ' + (data.detail || 'Error'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // 6. Save Budget
+    async function saveBudget(e) {
+      e.preventDefault();
+      const amount = parseFloat(document.getElementById('budget-amount').value);
+      try {
+        const res = await fetch('/api/budget', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ monthly_limit: amount })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          closeBudgetModal();
+          showToast('Target budget bulanan diperbarui! 🎯');
+          setTimeout(() => window.location.reload(), 800);
+        } else {
+          alert('Gagal menyimpan budget');
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // 7. Render Charts
     const categoryLabels = {{ category_labels | tojson }};
     const categoryValues = {{ category_values | tojson }};
 
@@ -249,14 +568,8 @@
           datasets: [{
             data: categoryValues,
             backgroundColor: [
-              '#fb923c', // Makan (Orange)
-              '#60a5fa', // Transport (Blue)
-              '#c084fc', // Belanja (Purple)
-              '#facc15', // Tagihan (Yellow)
-              '#f472b6', // Hiburan (Pink)
-              '#34d399', // Kesehatan (Green)
-              '#818cf8', // Edukasi (Indigo)
-              '#94a3b8'  // Lainnya (Gray)
+              '#fb923c', '#60a5fa', '#c084fc', '#facc15', 
+              '#f472b6', '#34d399', '#818cf8', '#94a3b8'
             ],
             borderWidth: 3,
             borderColor: '#ffffff',
@@ -269,18 +582,11 @@
           plugins: {
             legend: {
               position: 'bottom',
-              labels: {
-                boxWidth: 12,
-                font: { family: 'Plus Jakarta Sans', size: 12 },
-                padding: 16
-              }
+              labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 12 }, padding: 14 }
             },
             tooltip: {
               callbacks: {
-                label: function(context) {
-                  const val = context.raw || 0;
-                  return ' Rp' + Number(val).toLocaleString('id-ID');
-                }
+                label: function(ctx) { return ' Rp' + Number(ctx.raw || 0).toLocaleString('id-ID'); }
               }
             }
           },
@@ -289,10 +595,9 @@
       });
     } else {
       document.getElementById('categoryChart').parentElement.innerHTML = 
-        '<div class="text-xs text-slate-400 italic">Belum ada data kategori bulan ini ૮ ˶- ﻌ -˶ ა</div>';
+        '<div class="text-xs text-slate-400 italic">Belum ada pengeluaran bulan ini ૮ ˶- ﻌ -˶ ა</div>';
     }
 
-    // 2. Data 7 Hari Terakhir
     const weeklyLabels = {{ weekly_labels | tojson }};
     const weeklyValues = {{ weekly_values | tojson }};
 
@@ -303,8 +608,8 @@
         datasets: [{
           label: 'Pengeluaran (Rp)',
           data: weeklyValues,
-          backgroundColor: '#fda4af', // Rose-300
-          hoverBackgroundColor: '#f43f5e', // Rose-500
+          backgroundColor: '#fda4af',
+          hoverBackgroundColor: '#f43f5e',
           borderRadius: 8,
           borderSkipped: false
         }]
@@ -316,27 +621,21 @@
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: function(context) {
-                const val = context.raw || 0;
-                return ' Rp' + Number(val).toLocaleString('id-ID');
-              }
+              label: function(ctx) { return ' Rp' + Number(ctx.raw || 0).toLocaleString('id-ID'); }
             }
           }
         },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, color: '#94a3b8' }
-          },
+          x: { grid: { display: false }, ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, color: '#94a3b8' } },
           y: {
             grid: { color: '#f1f5f9' },
             ticks: {
               font: { family: 'Plus Jakarta Sans', size: 10 },
               color: '#94a3b8',
-              callback: function(value) {
-                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'jt';
-                if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
-                return value;
+              callback: function(v) {
+                if (v >= 1000000) return (v / 1000000).toFixed(1) + 'jt';
+                if (v >= 1000) return (v / 1000).toFixed(0) + 'k';
+                return v;
               }
             }
           }
@@ -344,21 +643,15 @@
       }
     });
 
-    // 3. Simple Client Search
+    // 8. Live Search
     const searchInput = document.getElementById('search-input');
     const tableBody = document.querySelector('#expense-table tbody');
-    
-    if (searchInput) {
+    if (searchInput && tableBody) {
       searchInput.addEventListener('input', function(e) {
         const query = e.target.value.toLowerCase();
         const rows = tableBody.querySelectorAll('tr');
         rows.forEach(row => {
-          const text = row.innerText.toLowerCase();
-          if (text.includes(query)) {
-            row.style.display = '';
-          } else {
-            row.style.display = 'none';
-          }
+          row.style.display = row.innerText.toLowerCase().includes(query) ? '' : 'none';
         });
       });
     }
