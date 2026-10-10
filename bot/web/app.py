@@ -136,7 +136,11 @@ async def dashboard_page(request: Request, user_id: int | None = None):
         "weekly_values": weekly_values,
         "expenses": expenses
     }
-    return templates.TemplateResponse("dashboard.html", context)
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html",
+        context=context
+    )
 
 @app.get("/api/stats", response_class=JSONResponse)
 async def api_stats(user_id: int | None = None):
