@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+import os
 import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
@@ -32,8 +33,31 @@ async def setup_bot_commands(bot: Bot):
         BotCommand(command="restore", description="Restore data dari file backup"),
         BotCommand(command="export", description="Download data dalam format .csv"),
     ]
-    await bot.set_my_commands(commands)
-    logger.info("Menu tombol command berhasil didaftarkan ke Telegram! (｡•̀ᴗ-)✧")
+    try:
+        await bot.set_my_commands(commands)
+        logger.info("Menu tombol command berhasil didaftarkan ke Telegram! (｡•̀ᴗ-)✧")
+    except Exception as e:
+        logger.warning(f"Gagal mendaftarkan menu commands: {e}")
+
+async def run_bot(bot: Bot, dp: Dispatcher):
+    """Menjalankan bot polling dengan auto-retry jika ada conflict saat rolling deploy."""
+    while True:
+        try:
+            logger.info("🤖 Memulai polling Telegram bot...")
+            await bot.delete_webhook(drop_pending_updates=True)
+            # handle_signals=False agar tidak bentrok dengan Uvicorn
+            await dp.start_polling(bot, handle_signals=False)
+            break
+        except Exception as e:
+            logger.warning(f"Polling terinterupsi ({e}). Mencoba kembali dalam 3 detik...")
+            await asyncio.sleep(3)
+
+async def run_web(server: uvicorn.Server):
+    """Menjalankan Uvicorn web server."""
+    try:
+        await server.serve()
+    except Exception as e:
+        logger.error(f"Error pada web server: {e}")
 
 async def main():
     if not settings.BOT_TOKEN:
@@ -56,27 +80,25 @@ async def main():
     # Daftarkan menu command ke tombol Menu Telegram
     await setup_bot_commands(bot)
 
-    # Bersihkan webhook / pending updates sebelumnya
-    await bot.delete_webhook(drop_pending_updates=True)
-
     # Konfigurasi Web Dashboard Server (FastAPI)
+    port = int(os.getenv("PORT", str(settings.PORT)))
     web_config = uvicorn.Config(
         web_app,
         host="0.0.0.0",
-        port=settings.PORT,
+        port=port,
         log_level="warning",
         access_log=False
     )
     server = uvicorn.Server(web_config)
 
-    logger.info(f"🌐 Web Dashboard berjalan di port {settings.PORT}!")
+    logger.info(f"🌐 Web Dashboard berjalan di port {port}!")
     logger.info(f"🤖 Bot Telegram polling aktif! ૮ ˶ᵔ ᵕ ᵔ˶ ა")
 
     try:
         # Jalankan Web Server dan Bot Telegram secara bersamaan
         await asyncio.gather(
-            server.serve(),
-            dp.start_polling(bot)
+            run_web(server),
+            run_bot(bot, dp)
         )
     finally:
         await bot.session.close()
