@@ -216,31 +216,41 @@
 
     </section>
 
-    <!-- Visual Charts Grid -->
+    <!-- Visual Charts Grid (Dinamis dari Backend API) -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       
-      <!-- Chart 1: Donut Kategori -->
+      <!-- Chart 1: Donut Kategori Dinamis -->
       <div class="bg-white/80 dark:bg-darkcard/80 backdrop-blur-md p-6 sm:p-7 rounded-3xl border border-slate-200/80 dark:border-darkborder shadow-sm flex flex-col justify-between transition-colors">
-        <div class="mb-4">
-          <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <span>🥧</span> Proporsi Pengeluaran per Kategori
-          </h2>
-          <p class="text-xs text-slate-400">Pembagian persentase dana berdasarkan kategori bulan ini</p>
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>🥧</span> Proporsi Pengeluaran per Kategori
+            </h2>
+            <p class="text-xs text-slate-400">Pembagian persentase dana berdasarkan seluruh kategori aktif</p>
+          </div>
+          <button onclick="updateChartsFromAPI()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Muat ulang chart">
+            🔄
+          </button>
         </div>
-        <div class="relative flex items-center justify-center my-auto min-h-[260px]">
+        <div id="categoryChartContainer" class="relative flex items-center justify-center my-auto min-h-[260px] w-full">
           <canvas id="categoryChart"></canvas>
         </div>
       </div>
 
-      <!-- Chart 2: Tren 7 Hari Terakhir -->
+      <!-- Chart 2: Tren 7 Hari Terakhir Dinamis -->
       <div class="bg-white/80 dark:bg-darkcard/80 backdrop-blur-md p-6 sm:p-7 rounded-3xl border border-slate-200/80 dark:border-darkborder shadow-sm flex flex-col justify-between transition-colors">
-        <div class="mb-4">
-          <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <span>📊</span> Tren Pengeluaran 7 Hari Terakhir
-          </h2>
-          <p class="text-xs text-slate-400">Grafik pengeluaran harian sepekan ke belakang</p>
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>📊</span> Tren Pengeluaran 7 Hari Terakhir
+            </h2>
+            <p class="text-xs text-slate-400">Grafik pengeluaran harian sepekan ke belakang</p>
+          </div>
+          <button onclick="updateChartsFromAPI()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Muat ulang chart">
+            🔄
+          </button>
         </div>
-        <div class="relative flex items-center justify-center my-auto min-h-[260px]">
+        <div id="weeklyChartContainer" class="relative flex items-center justify-center my-auto min-h-[260px] w-full">
           <canvas id="weeklyChart"></canvas>
         </div>
       </div>
@@ -259,19 +269,32 @@
           <p class="text-xs text-slate-400">Kelola catatan keuangan langsung dari website (tambah, edit, hapus)</p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <!-- Filter Kategori Dinamis -->
+          <select 
+            id="category-filter" 
+            onchange="filterExpenses()"
+            class="px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-darkbg border border-slate-200 dark:border-darkborder text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 shrink-0 font-medium"
+          >
+            <option value="">Semua Kategori</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}">{{ get_category_display(cat) }}</option>
+            {% endfor %}
+          </select>
+
           <!-- Search input -->
-          <div class="relative w-full sm:w-64">
+          <div class="relative w-full sm:w-56">
             <input 
               type="text" 
               id="search-input" 
+              oninput="filterExpenses()"
               placeholder="Cari transaksi atau #tag..." 
-              class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-darkbg border border-slate-200 dark:border-darkborder text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
+              class="w-full pl-8 pr-4 py-2 text-xs rounded-xl bg-slate-50 dark:bg-darkbg border border-slate-200 dark:border-darkborder text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"
             >
-            <span class="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+            <span class="absolute left-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
           </div>
 
-          <button onclick="openExpenseModal()" class="px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 font-semibold text-xs transition-colors shrink-0">
+          <button onclick="openExpenseModal()" class="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 font-semibold text-xs transition-colors shrink-0">
             + Tambah
           </button>
         </div>
@@ -293,23 +316,14 @@
           <tbody class="divide-y divide-slate-100 dark:divide-darkborder text-slate-700 dark:text-slate-200">
             {% if expenses %}
               {% for exp in expenses %}
-                <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors" id="row-{{ exp.id }}">
+                <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors" id="row-{{ exp.id }}" data-category="{{ exp.category or 'Lainnya' }}">
                   <td class="py-4 px-6 text-xs text-slate-400 font-mono">#{{ exp.id }}</td>
                   <td class="py-4 px-6 text-xs text-slate-500 dark:text-slate-400">
                     {{ exp.date.strftime('%d %b %Y, %H:%M') }}
                   </td>
                   <td class="py-4 px-6">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium 
-                      {% if exp.category == 'Makan' %}bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-500/20
-                      {% elif exp.category == 'Minuman' %}bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-100 dark:border-cyan-500/20
-                      {% elif exp.category == 'Transport' %}bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20
-                      {% elif exp.category == 'Belanja' %}bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-500/20
-                      {% elif exp.category == 'Tagihan' %}bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-500/20
-                      {% elif exp.category == 'Hiburan' %}bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-100 dark:border-pink-500/20
-                      {% elif exp.category == 'Kesehatan' %}bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20
-                      {% elif exp.category == 'Edukasi' %}bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20
-                      {% else %}bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700{% endif %}">
-                      {{ exp.category or 'Lainnya' }}
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium {{ get_badge_class(exp.category) }}">
+                      {{ get_category_display(exp.category) }}
                     </span>
                   </td>
                   <td class="py-4 px-6 font-medium text-slate-800 dark:text-slate-100">
@@ -324,7 +338,7 @@
                   <td class="py-4 px-6 text-center">
                     <div class="inline-flex items-center gap-1.5">
                       <button 
-                        onclick="editExpense({{ exp.id }}, {{ exp.amount }}, '{{ exp.category }}', '{{ exp.description }}', '{{ exp.tag or '' }}', '{{ exp.date.strftime('%Y-%m-%dT%H:%M') }}')" 
+                        onclick="editExpense({{ exp.id }}, {{ exp.amount }}, '{{ exp.category or 'Lainnya' }}', '{{ exp.description }}', '{{ exp.tag or '' }}', '{{ exp.date.strftime('%Y-%m-%dT%H:%M') }}')" 
                         class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
                         title="Edit transaksi"
                       >
@@ -344,7 +358,7 @@
             {% else %}
               <tr>
                 <td colspan="6" class="py-12 text-center text-slate-400 text-sm">
-                  Belum ada transaksi. Klik tombol <b>+ Tambah Transaksi</b> di atas untuk mencatat! ૮ ˶ᵔ ᵕ ᵔ˶ ა
+                  Belum ada transaksi. Klik tombol <b>+ Tambah Transaksi</b> di atas untuk mencatat! ૮ ˶ᵔ ᵕ ᵔ˶ Parse
                 </td>
               </tr>
             {% endif %}
@@ -383,23 +397,22 @@
           >
         </div>
 
-        <!-- Kategori -->
+        <!-- Kategori Dinamis dari Database -->
         <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Kategori</label>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Kategori</label>
+            <button type="button" onclick="promptNewCategory()" class="text-[11px] text-rose-500 hover:underline font-medium">
+              + Kategori Baru
+            </button>
+          </div>
           <select 
             id="form-category" 
             required 
             class="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-darkbg border border-slate-200 dark:border-darkborder text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
           >
-            <option value="Makan">🍔 Makan</option>
-            <option value="Minuman">🧋 Minuman</option>
-            <option value="Transport">🛵 Transportasi</option>
-            <option value="Belanja">🛒 Belanja</option>
-            <option value="Tagihan">💡 Tagihan & Cicilan</option>
-            <option value="Hiburan">🎮 Hiburan</option>
-            <option value="Kesehatan">💊 Kesehatan</option>
-            <option value="Edukasi">📚 Edukasi</option>
-            <option value="Lainnya">✨ Lainnya</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}">{{ get_category_display(cat) }}</option>
+            {% endfor %}
           </select>
         </div>
 
@@ -524,7 +537,46 @@
       }, 2500);
     }
 
-    // 3. Modals Control
+    // 3. Helper Color Palette Dinamis untuk Chart.js
+    function generateDynamicPalette(count, isDark) {
+      // Palet warna estetik modern Tailwind
+      const modernTailwindColors = [
+        '#06b6d4', // Cyan (Minuman / Fresh)
+        '#fb923c', // Orange (Makan)
+        '#60a5fa', // Blue (Transport)
+        '#c084fc', // Purple (Belanja)
+        '#facc15', // Amber (Tagihan)
+        '#f472b6', // Pink (Hiburan)
+        '#34d399', // Emerald (Kesehatan)
+        '#818cf8', // Indigo (Edukasi)
+        '#2dd4bf', // Teal
+        '#fb7185', // Rose
+        '#a78bfa', // Violet
+        '#a3e635', // Lime
+        '#38bdf8', // Sky
+        '#e879f9', // Fuchsia
+        '#94a3b8'  // Slate
+      ];
+
+      if (count <= modernTailwindColors.length) {
+        return modernTailwindColors.slice(0, count);
+      }
+
+      // Jika kategori melebihi daftar warna default, buat warna dinamis HSL
+      const colors = [...modernTailwindColors];
+      const goldenRatio = 0.618033988749895;
+      let hue = 0.15;
+      for (let i = modernTailwindColors.length; i < count; i++) {
+        hue = (hue + goldenRatio) % 1;
+        const h = Math.round(hue * 360);
+        const s = isDark ? '70%' : '75%';
+        const l = isDark ? '62%' : '56%';
+        colors.push(`hsl(${h}, ${s}, ${l})`);
+      }
+      return colors;
+    }
+
+    // 4. Modals Control & New Category Prompt
     const expenseModal = document.getElementById('expense-modal');
     const budgetModal = document.getElementById('budget-modal');
 
@@ -533,7 +585,6 @@
         document.getElementById('modal-title').innerHTML = '<span>📝</span> Tambah Transaksi Baru';
         document.getElementById('form-id').value = '';
         document.getElementById('form-amount').value = '';
-        document.getElementById('form-category').value = 'Makan';
         document.getElementById('form-desc').value = '';
         document.getElementById('form-tag').value = '';
         
@@ -557,19 +608,55 @@
       budgetModal.classList.remove('modal-active');
     }
 
-    // 4. Edit Expense Action
+    function promptNewCategory() {
+      const newCat = prompt("Masukkan nama kategori baru:");
+      if (!newCat || !newCat.trim()) return;
+      const cleanCat = newCat.trim().charAt(0).toUpperCase() + newCat.trim().slice(1);
+      
+      const selectEl = document.getElementById('form-category');
+      const filterEl = document.getElementById('category-filter');
+      
+      // Tambahkan jika belum ada di select form
+      let exists = Array.from(selectEl.options).some(o => o.value.toLowerCase() === cleanCat.toLowerCase());
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = cleanCat;
+        opt.innerText = '🏷️ ' + cleanCat;
+        selectEl.appendChild(opt);
+
+        if (filterEl) {
+          const filterOpt = document.createElement('option');
+          filterOpt.value = cleanCat;
+          filterOpt.innerText = '🏷️ ' + cleanCat;
+          filterEl.appendChild(filterOpt);
+        }
+      }
+      selectEl.value = cleanCat;
+    }
+
+    // 5. Edit Expense Action
     function editExpense(id, amount, category, desc, tag, dateStr) {
       document.getElementById('modal-title').innerHTML = '<span>✏️</span> Edit Transaksi #' + id;
       document.getElementById('form-id').value = id;
       document.getElementById('form-amount').value = amount;
-      document.getElementById('form-category').value = category;
+      
+      const selectEl = document.getElementById('form-category');
+      let exists = Array.from(selectEl.options).some(o => o.value.toLowerCase() === (category || '').toLowerCase());
+      if (!exists && category) {
+        const opt = document.createElement('option');
+        opt.value = category;
+        opt.innerText = '🏷️ ' + category;
+        selectEl.appendChild(opt);
+      }
+      selectEl.value = category;
+
       document.getElementById('form-desc').value = desc;
       document.getElementById('form-tag').value = tag;
       document.getElementById('form-date').value = dateStr;
       openExpenseModal(true);
     }
 
-    // 5. Save Expense (Create or Update)
+    // 6. Save Expense (Create or Update)
     async function saveExpense(e) {
       e.preventDefault();
       const id = document.getElementById('form-id').value;
@@ -604,7 +691,7 @@
         if (res.ok) {
           closeExpenseModal();
           showToast(data.message || 'Berhasil disimpan!', '🎉');
-          setTimeout(() => window.location.reload(), 800);
+          setTimeout(() => window.location.reload(), 600);
         } else {
           alert('Gagal: ' + (data.detail || 'Terjadi kesalahan'));
         }
@@ -616,7 +703,7 @@
       }
     }
 
-    // 6. Delete Expense
+    // 7. Delete Expense
     async function deleteExpense(id) {
       if (!confirm(`Yakin mau menghapus transaksi #${id}?`)) return;
 
@@ -627,7 +714,7 @@
           showToast('Transaksi berhasil dihapus!', '🗑️');
           const row = document.getElementById(`row-${id}`);
           if (row) row.remove();
-          setTimeout(() => window.location.reload(), 800);
+          setTimeout(() => window.location.reload(), 600);
         } else {
           alert('Gagal menghapus: ' + (data.detail || 'Error'));
         }
@@ -636,7 +723,7 @@
       }
     }
 
-    // 7. Save Budget
+    // 8. Save Budget
     async function saveBudget(e) {
       e.preventDefault();
       const amount = parseFloat(document.getElementById('budget-amount').value);
@@ -650,7 +737,7 @@
         if (res.ok) {
           closeBudgetModal();
           showToast('Target budget bulanan diperbarui! 🎯');
-          setTimeout(() => window.location.reload(), 800);
+          setTimeout(() => window.location.reload(), 600);
         } else {
           alert('Gagal menyimpan budget');
         }
@@ -659,33 +746,61 @@
       }
     }
 
-    // 8. Render Charts with Dynamic Theme Support
-    const categoryLabels = {{ category_labels | tojson }};
-    const categoryValues = {{ category_values | tojson }};
-    const weeklyLabels = {{ weekly_labels | tojson }};
-    const weeklyValues = {{ weekly_values | tojson }};
+    // 9. Data Awal dari Server (Jinja Context)
+    const initialCategoryLabels = {{ category_labels | tojson }};
+    const initialCategoryValues = {{ category_values | tojson }};
+    const initialWeeklyLabels = {{ weekly_labels | tojson }};
+    const initialWeeklyValues = {{ weekly_values | tojson }};
 
     let catChart = null;
     let weekChart = null;
 
-    function initCharts() {
+    // Render Donut Chart dengan Warna Dinamis
+    function renderDonutChart(labels, values) {
       const dark = isDarkMode();
       const textColor = dark ? '#94a3b8' : '#64748b';
-      const gridColor = dark ? '#1e293b' : '#f1f5f9';
+      const canvas = document.getElementById('categoryChart');
+      const container = document.getElementById('categoryChartContainer');
+      if (!canvas || !container) return;
 
-      // Donut Chart
-      if (categoryLabels.length > 0) {
-        const ctx1 = document.getElementById('categoryChart');
-        catChart = new Chart(ctx1, {
+      if (!labels || labels.length === 0 || values.length === 0 || values.every(v => v === 0)) {
+        if (catChart) {
+          catChart.destroy();
+          catChart = null;
+        }
+        canvas.style.display = 'none';
+        let emptyEl = document.getElementById('catChartEmpty');
+        if (!emptyEl) {
+          emptyEl = document.createElement('div');
+          emptyEl.id = 'catChartEmpty';
+          emptyEl.className = 'text-xs text-slate-400 italic text-center py-10';
+          emptyEl.innerText = 'Belum ada catatan pengeluaran per kategori ૮ ˶- ﻌ -˶ ა';
+          container.appendChild(emptyEl);
+        }
+        return;
+      }
+
+      const emptyEl = document.getElementById('catChartEmpty');
+      if (emptyEl) emptyEl.remove();
+      canvas.style.display = 'block';
+
+      const colors = generateDynamicPalette(labels.length, dark);
+
+      if (catChart) {
+        catChart.data.labels = labels;
+        catChart.data.datasets[0].data = values;
+        catChart.data.datasets[0].backgroundColor = colors;
+        catChart.data.datasets[0].borderColor = dark ? '#161f32' : '#ffffff';
+        catChart.options.plugins.legend.labels.color = textColor;
+        catChart.update();
+      } else {
+        catChart = new Chart(canvas, {
           type: 'doughnut',
           data: {
-            labels: categoryLabels,
+            labels: labels,
             datasets: [{
-              data: categoryValues,
-              backgroundColor: [
-                '#fb923c', '#06b6d4', '#60a5fa', '#c084fc', '#facc15', 
-                '#f472b6', '#34d399', '#818cf8', '#94a3b8'
-              ],
+              data: values,
+              backgroundColor: colors,
               borderWidth: 2,
               borderColor: dark ? '#161f32' : '#ffffff',
               hoverOffset: 6
@@ -697,65 +812,108 @@
             plugins: {
               legend: {
                 position: 'bottom',
-                labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 12 }, padding: 14, color: textColor }
+                labels: {
+                  boxWidth: 12,
+                  font: { family: 'Plus Jakarta Sans', size: 12 },
+                  padding: 14,
+                  color: textColor
+                }
               },
               tooltip: {
                 callbacks: {
-                  label: function(ctx) { return ' Rp' + Number(ctx.raw || 0).toLocaleString('id-ID'); }
+                  label: function(ctx) {
+                    return ' ' + ctx.label + ': Rp' + Number(ctx.raw || 0).toLocaleString('id-ID');
+                  }
                 }
               }
             },
             cutout: '65%'
           }
         });
-      } else {
-        document.getElementById('categoryChart').parentElement.innerHTML = 
-          '<div class="text-xs text-slate-400 italic">Belum ada pengeluaran bulan ini ૮ ˶- ﻌ -˶ ა</div>';
       }
+    }
 
-      // Bar Chart
-      const ctx2 = document.getElementById('weeklyChart');
-      weekChart = new Chart(ctx2, {
-        type: 'bar',
-        data: {
-          labels: weeklyLabels,
-          datasets: [{
-            label: 'Pengeluaran (Rp)',
-            data: weeklyValues,
-            backgroundColor: dark ? '#f43f5e' : '#fda4af',
-            hoverBackgroundColor: '#e11d48',
-            borderRadius: 8,
-            borderSkipped: false
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(ctx) { return ' Rp' + Number(ctx.raw || 0).toLocaleString('id-ID'); }
-              }
-            }
+    // Render Bar Chart Tren Mingguan
+    function renderBarChart(labels, values) {
+      const dark = isDarkMode();
+      const textColor = dark ? '#94a3b8' : '#64748b';
+      const gridColor = dark ? '#1e293b' : '#f1f5f9';
+      const canvas = document.getElementById('weeklyChart');
+      if (!canvas) return;
+
+      if (weekChart) {
+        weekChart.data.labels = labels;
+        weekChart.data.datasets[0].data = values;
+        weekChart.data.datasets[0].backgroundColor = dark ? '#f43f5e' : '#fda4af';
+        weekChart.options.scales.x.ticks.color = textColor;
+        weekChart.options.scales.y.ticks.color = textColor;
+        weekChart.options.scales.y.grid.color = gridColor;
+        weekChart.update();
+      } else {
+        weekChart = new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Pengeluaran (Rp)',
+              data: values,
+              backgroundColor: dark ? '#f43f5e' : '#fda4af',
+              hoverBackgroundColor: '#e11d48',
+              borderRadius: 8,
+              borderSkipped: false
+            }]
           },
-          scales: {
-            x: { grid: { display: false }, ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, color: textColor } },
-            y: {
-              grid: { color: gridColor },
-              ticks: {
-                font: { family: 'Plus Jakarta Sans', size: 10 },
-                color: textColor,
-                callback: function(v) {
-                  if (v >= 1000000) return (v / 1000000).toFixed(1) + 'jt';
-                  if (v >= 1000) return (v / 1000).toFixed(0) + 'k';
-                  return v;
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function(ctx) { return ' Rp' + Number(ctx.raw || 0).toLocaleString('id-ID'); }
+                }
+              }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { family: 'Plus Jakarta Sans', size: 11 }, color: textColor } },
+              y: {
+                grid: { color: gridColor },
+                ticks: {
+                  font: { family: 'Plus Jakarta Sans', size: 10 },
+                  color: textColor,
+                  callback: function(v) {
+                    if (v >= 1000000) return (v / 1000000).toFixed(1) + 'jt';
+                    if (v >= 1000) return (v / 1000).toFixed(0) + 'k';
+                    return v;
+                  }
                 }
               }
             }
           }
-        }
-      });
+        });
+      }
+    }
+
+    // 10. Update Charts Secara Dinamis dari API Backend (/api/stats)
+    async function updateChartsFromAPI() {
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) throw new Error('Network error saat memuat /api/stats');
+        const stats = await res.json();
+
+        // Support format { labels: [...], data: [...] } maupun nested { categories: {...}, weekly: {...} }
+        const catLabels = stats.categories?.labels || stats.labels || [];
+        const catData = stats.categories?.data || stats.data || [];
+        const weekLabels = stats.weekly?.labels || [];
+        const weekData = stats.weekly?.data || [];
+
+        renderDonutChart(catLabels, catData);
+        renderBarChart(weekLabels, weekData);
+      } catch (err) {
+        console.warn('Menggunakan data awal server:', err);
+        renderDonutChart(initialCategoryLabels, initialCategoryValues);
+        renderBarChart(initialWeeklyLabels, initialWeeklyValues);
+      }
     }
 
     function updateChartThemes() {
@@ -766,6 +924,7 @@
       if (catChart) {
         catChart.options.plugins.legend.labels.color = textColor;
         catChart.data.datasets[0].borderColor = dark ? '#161f32' : '#ffffff';
+        catChart.data.datasets[0].backgroundColor = generateDynamicPalette(catChart.data.labels.length, dark);
         catChart.update();
       }
 
@@ -778,18 +937,21 @@
       }
     }
 
-    initCharts();
+    // Inisialisasi Chart saat halaman selesai dimuat
+    updateChartsFromAPI();
 
-    // 9. Live Search
-    const searchInput = document.getElementById('search-input');
-    const tableBody = document.querySelector('#expense-table tbody');
-    if (searchInput && tableBody) {
-      searchInput.addEventListener('input', function(e) {
-        const query = e.target.value.toLowerCase();
-        const rows = tableBody.querySelectorAll('tr');
-        rows.forEach(row => {
-          row.style.display = row.innerText.toLowerCase().includes(query) ? '' : 'none';
-        });
+    // 11. Live Filter & Search
+    function filterExpenses() {
+      const query = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+      const selectedCat = (document.getElementById('category-filter')?.value || '').toLowerCase().trim();
+      const rows = document.querySelectorAll('#expense-table tbody tr[id^="row-"]');
+
+      rows.forEach(row => {
+        const rowText = row.innerText.toLowerCase();
+        const rowCat = (row.getAttribute('data-category') || '').toLowerCase().trim();
+        const matchSearch = !query || rowText.includes(query);
+        const matchCat = !selectedCat || rowCat === selectedCat;
+        row.style.display = (matchSearch && matchCat) ? '' : 'none';
       });
     }
   </script>
