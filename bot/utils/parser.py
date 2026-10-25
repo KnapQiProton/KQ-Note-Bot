@@ -16,6 +16,90 @@ def get_current_time() -> datetime:
         tz = timezone(timedelta(hours=7))
         return datetime.now(tz)
 
+def detect_category(text: str) -> str | None:
+    """Mendeteksi kategori yang sesuai berdasarkan kata kunci di deskripsi teks."""
+    text_lower = text.lower()
+
+    # 1. Minuman (Prioritas untuk kata kunci minuman spesifik)
+    minuman_patterns = [
+        r"\bkopi\s*susu\b", r"\bkopi\b", r"\bteh\b", r"\bjus\b", r"\bsusu\b",
+        r"\bes\b", r"\bminuman\b", r"\bboba\b", r"\blatte\b", r"\bcappuccino\b",
+        r"\bmatcha\b", r"\bamericano\b", r"\bespresso\b", r"\bsirup\b",
+        r"\bair\s*mineral\b", r"\baqua\b"
+    ]
+    for pat in minuman_patterns:
+        if re.search(pat, text_lower):
+            return "Minuman"
+
+    # 2. Transportasi / Perjalanan
+    transport_patterns = [
+        r"\bbensin\b", r"\bpertalite\b", r"\bpertamax\b", r"\bsolar\b",
+        r"\bojol\b", r"\bgojek\b", r"\bgrab\b", r"\bmaxim\b", r"\bparkir\b",
+        r"\btol\b", r"\btiket\b", r"\bkereta\b", r"\bkrl\b", r"\bmrt\b",
+        r"\bbusway\b", r"\bangkot\b", r"\btransport(?:asi)?\b", r"\bperjalanan\b"
+    ]
+    for pat in transport_patterns:
+        if re.search(pat, text_lower):
+            return "Transport"
+
+    # 3. Makan
+    makan_patterns = [
+        r"\bmakan(?:an)?\b", r"\bnasi\b", r"\bmie\b", r"\bbakso\b", r"\bayam\b",
+        r"\bsoto\b", r"\broti\b", r"\bsnack\b", r"\bcamilan\b", r"\bgorengan\b",
+        r"\bmartabak\b", r"\bpecel\b", r"\bbubur\b", r"\bsate\b"
+    ]
+    for pat in makan_patterns:
+        if re.search(pat, text_lower):
+            return "Makan"
+
+    # 4. Tagihan
+    tagihan_patterns = [
+        r"\blistrik\b", r"\bpln\b", r"\bpdam\b", r"\bpulsa\b", r"\bkuota\b",
+        r"\btoken\b", r"\bwifi\b", r"\bindi(?:home)?\b", r"\bsewa\b",
+        r"\bkos(?:an)?\b", r"\bcicilan\b", r"\btagihan\b"
+    ]
+    for pat in tagihan_patterns:
+        if re.search(pat, text_lower):
+            return "Tagihan"
+
+    # 5. Belanja
+    belanja_patterns = [
+        r"\bbelanja\b", r"\bbeli\b", r"\bminimarket\b", r"\bindomaret\b",
+        r"\balfamart\b", r"\bsupermarket\b", r"\bpakaian\b", r"\bbaju\b", r"\bsepatu\b"
+    ]
+    for pat in belanja_patterns:
+        if re.search(pat, text_lower):
+            return "Belanja"
+
+    # 6. Hiburan
+    hiburan_patterns = [
+        r"\bnonton\b", r"\bbioskop\b", r"\bgame\b", r"\bsteam\b", r"\btopup\b",
+        r"\blangganan\b", r"\bspotify\b", r"\bnetflix\b", r"\byoutube\b", r"\bhiburan\b"
+    ]
+    for pat in hiburan_patterns:
+        if re.search(pat, text_lower):
+            return "Hiburan"
+
+    # 7. Kesehatan
+    kesehatan_patterns = [
+        r"\bobat\b", r"\bapotek\b", r"\bdokter\b", r"\bklinik\b",
+        r"\brumah\s*sakit\b", r"\bvitamin\b", r"\bmedis\b", r"\bkesehatan\b"
+    ]
+    for pat in kesehatan_patterns:
+        if re.search(pat, text_lower):
+            return "Kesehatan"
+
+    # 8. Edukasi
+    edukasi_patterns = [
+        r"\bbuku\b", r"\bkuliah\b", r"\bspp\b", r"\bkursus\b", r"\bseminar\b",
+        r"\bujian\b", r"\bprint\b", r"\bfotokopi\b", r"\bedukasi\b", r"\bsekolah\b"
+    ]
+    for pat in edukasi_patterns:
+        if re.search(pat, text_lower):
+            return "Edukasi"
+
+    return None
+
 def parse_expense_text(text: str) -> dict | None:
     """
     Mem-parse input teks natural menjadi dict:
@@ -97,9 +181,15 @@ def parse_expense_text(text: str) -> dict | None:
     if not desc:
         desc = "Pengeluaran tanpa catatan"
 
+    # Deteksi kategori yang disarankan otomatis berdasarkan deskripsi dan tag
+    suggested_category = detect_category(desc)
+    if not suggested_category and primary_tag:
+        suggested_category = detect_category(primary_tag)
+
     return {
         "amount": best_val,
         "description": desc,
         "tag": primary_tag,
-        "date": target_date
+        "date": target_date,
+        "suggested_category": suggested_category
     }

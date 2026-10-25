@@ -75,16 +75,19 @@ async def handle_natural_input(message: Message):
         await session.commit()
         await session.refresh(expense)
 
+    suggested_cat = parsed.get("suggested_category")
     tag_str = f" `#{parsed['tag']}`" if parsed["tag"] else ""
     date_str = " _(catatan kemarin)_" if parsed["date"].date() < now.date() else ""
+    saran_str = f"\n💡 *Disarankan:* {suggested_cat} (klik tombol rekomendasi yaa)\n" if suggested_cat else "\n"
 
     text = (
         f"Nyuu~ ૮ ˶ᵔ ᵕ ᵔ˶ ა Mau catat pengeluaran:\n"
         f"💵 *{format_rupiah(parsed['amount'])}*\n"
-        f"📝 *{parsed['description']}*{tag_str}{date_str}\n\n"
+        f"📝 *{parsed['description']}*{tag_str}{date_str}"
+        f"{saran_str}\n"
         f"Pilih kategorinya di bawah yaa! (๑> <๑)"
     )
-    await message.reply(text, reply_markup=get_category_keyboard(expense.id), parse_mode="Markdown")
+    await message.reply(text, reply_markup=get_category_keyboard(expense.id, suggested=suggested_cat), parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("cat:"))
 async def handle_category_callback(callback: CallbackQuery):
@@ -106,8 +109,14 @@ async def handle_category_callback(callback: CallbackQuery):
 
     alert_text = alert_msg or ""
     tag_info = f" #{expense.tag}" if expense.tag else ""
+    
+    if expense.category == "Minuman":
+        confirm_title = "Yeay! Berhasil mencatat pengeluaran Minuman (ﾉ◕ヮ◕)ﾉ*:･ﾟ✧ Segar banget~ 🧋"
+    else:
+        confirm_title = "Yeay! Berhasil dicatat (｡•̀ᴗ-)✧"
+
     await callback.message.edit_text(
-        f"Yeay! Berhasil dicatat (｡•̀ᴗ-)✧\n"
+        f"{confirm_title}\n"
         f"📌 *Kategori:* {expense.category}\n"
         f"💰 *Nominal:* {format_rupiah(expense.amount)}\n"
         f"📝 *Catatan:* {expense.description}{tag_info}"
