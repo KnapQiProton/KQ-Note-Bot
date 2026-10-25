@@ -1,6 +1,7 @@
 import os
 import io
 import csv
+import logging
 from datetime import datetime, timedelta
 from calendar import monthrange
 from pydantic import BaseModel
@@ -12,12 +13,17 @@ from bot.database.session import async_session
 from bot.database.models import Expense, Budget
 from bot.utils.parser import get_current_time
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="KQ-Note Dashboard & Management")
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=template_dir)
 
-# Helper Kaomoji & Emoji Kategori Dinamis
+# ==========================================
+# JINJA2 GLOBAL HELPERS (AMAN & BEBAS ERROR)
+# ==========================================
+
 CATEGORY_EMOJIS = {
     "Makan": "🍔",
     "Minuman": "🧋",
@@ -42,11 +48,49 @@ CATEGORY_STYLES = {
     "Lainnya": "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
 }
 
+def format_rupiah(val) -> str:
+    """Format angka menjadi string Rupiah aman tanpa crash jika None/Undefined."""
+    try:
+        if val is None:
+            return "0"
+        num = float(val)
+        return "{:,.0f}".format(num).replace(",", ".")
+    except Exception:
+        return "0"
+
+def format_datetime(val) -> str:
+    """Format tanggal menjadi string 'DD MMM YYYY, HH:MM' yang aman."""
+    if not val:
+        return "-"
+    if isinstance(val, str):
+        try:
+            val = datetime.fromisoformat(val)
+        except Exception:
+            return val
+    try:
+        return val.strftime("%d %b %Y, %H:%M")
+    except Exception:
+        return str(val)
+
+def format_input_datetime(val) -> str:
+    """Format tanggal untuk input datetime-local HTML (YYYY-MM-DDTHH:MM)."""
+    if not val:
+        return ""
+    if isinstance(val, str):
+        try:
+            val = datetime.fromisoformat(val)
+        except Exception:
+            return ""
+    try:
+        return val.strftime("%Y-%m-%dT%H:%M")
+    except Exception:
+        return ""
+
 def get_category_display(category: str | None) -> str:
     """Mengembalikan nama kategori dengan ikon emoji yang sesuai."""
     if not category:
         return "✨ Lainnya"
-    cat = category.strip().capitalize()
+    cat = str(category).strip().capitalize()
     emoji = CATEGORY_EMOJIS.get(cat, "🏷️")
     return f"{emoji} {cat}"
 
@@ -54,7 +98,7 @@ def get_badge_class(category: str | None) -> str:
     """Mengembalikan kelas CSS Tailwind untuk badge kategori secara dinamis."""
     if not category:
         return CATEGORY_STYLES["Lainnya"]
-    cat = category.strip().capitalize()
+    cat = str(category).strip().capitalize()
     if cat in CATEGORY_STYLES:
         return CATEGORY_STYLES[cat]
     dynamic_badges = [
@@ -68,6 +112,10 @@ def get_badge_class(category: str | None) -> str:
     idx = abs(hash(cat)) % len(dynamic_badges)
     return dynamic_badges[idx]
 
+# Registrasi helper ke Jinja Environment
+templates.env.globals["format_rupiah"] = format_rupiah
+templates.env.globals["format_datetime"] = format_datetime
+templates.env.globals["format_input_datetime"] = format_input_datetime
 templates.env.globals["get_category_display"] = get_category_display
 templates.env.globals["get_badge_class"] = get_badge_class
 
@@ -95,14 +143,17 @@ async def get_active_user_id(session, user_id: int | None = None) -> int:
     """Mendapatkan user_id aktif (otomatis mendeteksi user Telegram)."""
     if user_id:
         return user_id
-    res = await session.execute(select(Expense.user_id).order_by(desc(Expense.created_at)).limit(1))
-    latest_uid = res.scalar_one_or_none()
-    if latest_uid:
-        return latest_uid
-    res_b = await session.execute(select(Budget.user_id).limit(1))
-    budget_uid = res_b.scalar_one_or_none()
-    if budget_uid:
-        return budget_uid
+    try:
+        res = await session.execute(select(Expense.user_id).order_by(desc(Expense.created_at)).limit(1))
+        latest_uid = res.scalar_one_or_none()
+        if latest_uid:
+            return latest_uid
+        res_b = await session.execute(select(Budget.user_id).limit(1))
+        budget_uid = res_b.scalar_one_or_none()
+        if budget_uid:
+            return budget_uid
+    except Exception as e:
+        logger.warning("Gagal mendeteksi active_uid: %s", e)
     return 1
 
 @app.get("/health")
@@ -115,17 +166,15 @@ async def get_categories():
     """Mengambil semua kategori unik (DISTINCT) langsung dari database pengeluaran."""
     async with async_session() as session:
         stmt = (
-            select(func.trim(Expense.category))
+            select(Expense.category)
             .where(
                 Expense.is_deleted == False,
-                Expense.category.is_not(None),
-                func.trim(Expense.category) != ""
+                Expense.category.is_not(None)
             )
             .distinct()
-            .order_by(func.trim(Expense.category).asc())
         )
         res = (await session.execute(stmt)).scalars().all()
-        categories = sorted(list(set(c for c in res if c)))
+        categories = sorted(list(set(c.strip().capitalize() for c in res if c and c.strip())))
         if not categories:
             categories = ["Makan", "Minuman", "Transport", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Edukasi", "Lainnya"]
         return {"categories": categories}
@@ -152,39 +201,41 @@ async def get_dashboard_stats(user_id: int | None = None):
         if user_id:
             base_conditions.append(Expense.user_id == user_id)
 
-        # 1. Proporsi Kategori Bulan Ini (Donut Chart)
+        # 1. Donut Chart Data: Query standar SQL kompatibel PostgreSQL & SQLite
         cat_stmt = (
-            select(
-                func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya').label("category"),
-                func.sum(Expense.amount).label("total")
-            )
+            select(Expense.category, func.sum(Expense.amount))
             .where(
                 *base_conditions,
                 Expense.date >= start_of_month,
                 Expense.date <= end_of_month
             )
-            .group_by(func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya'))
+            .group_by(Expense.category)
             .order_by(desc(func.sum(Expense.amount)))
         )
         cat_results = (await session.execute(cat_stmt)).all()
 
+        cat_map = {}
+        for cat_raw, amount in cat_results:
+            c = cat_raw.strip().capitalize() if cat_raw and cat_raw.strip() else "Lainnya"
+            cat_map[c] = cat_map.get(c, 0.0) + float(amount or 0.0)
+
         # Fallback jika data bulan berjalan belum ada transaksi
-        if not cat_results:
+        if not cat_map:
             all_cat_stmt = (
-                select(
-                    func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya').label("category"),
-                    func.sum(Expense.amount).label("total")
-                )
+                select(Expense.category, func.sum(Expense.amount))
                 .where(*base_conditions)
-                .group_by(func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya'))
+                .group_by(Expense.category)
                 .order_by(desc(func.sum(Expense.amount)))
             )
-            cat_results = (await session.execute(all_cat_stmt)).all()
+            all_cat_results = (await session.execute(all_cat_stmt)).all()
+            for cat_raw, amount in all_cat_results:
+                c = cat_raw.strip().capitalize() if cat_raw and cat_raw.strip() else "Lainnya"
+                cat_map[c] = cat_map.get(c, 0.0) + float(amount or 0.0)
 
-        labels = [r[0] for r in cat_results]
-        data = [float(r[1]) for r in cat_results]
+        labels = list(cat_map.keys())
+        data = list(cat_map.values())
 
-        # 2. Tren 7 Hari Terakhir (Bar Chart)
+        # 2. Bar Chart Data: Tren 7 Hari Terakhir
         start_7_days = start_of_day - timedelta(days=6)
         weekly_stmt = (
             select(Expense.date, Expense.amount)
@@ -206,9 +257,20 @@ async def get_dashboard_stats(user_id: int | None = None):
             daily_sums[key] = 0.0
 
         for exp_date, amount in weekly_expenses:
-            date_key = exp_date.astimezone(tz).strftime("%d/%m")
-            if date_key in daily_sums:
-                daily_sums[date_key] += float(amount)
+            if not exp_date:
+                continue
+            try:
+                if isinstance(exp_date, str):
+                    exp_date = datetime.fromisoformat(exp_date)
+                if exp_date.tzinfo is None:
+                    exp_date = exp_date.replace(tzinfo=tz)
+                else:
+                    exp_date = exp_date.astimezone(tz)
+                date_key = exp_date.strftime("%d/%m")
+                if date_key in daily_sums:
+                    daily_sums[date_key] += float(amount or 0.0)
+            except Exception:
+                continue
 
         weekly_data = [daily_sums[k] for k in weekly_labels]
 
@@ -241,128 +303,164 @@ async def dashboard_page(request: Request, user_id: int | None = None):
     start_of_month = datetime(now.year, now.month, 1, 0, 0, 0, tzinfo=tz)
     end_of_month = datetime(now.year, now.month, last_day, 23, 59, 59, 999999, tzinfo=tz)
 
-    async with async_session() as session:
-        active_uid = await get_active_user_id(session, user_id)
-        base_conditions = [
-            Expense.is_confirmed == True,
-            Expense.is_deleted == False
-        ]
-        if user_id:
-            base_conditions.append(Expense.user_id == user_id)
+    try:
+        async with async_session() as session:
+            active_uid = await get_active_user_id(session, user_id)
+            base_conditions = [
+                Expense.is_confirmed == True,
+                Expense.is_deleted == False
+            ]
+            if user_id:
+                base_conditions.append(Expense.user_id == user_id)
 
-        # 1. Total Bulan Ini
-        month_stmt = select(func.sum(Expense.amount), func.count(Expense.id)).where(
-            *base_conditions,
-            Expense.date >= start_of_month,
-            Expense.date <= end_of_month
-        )
-        month_res = (await session.execute(month_stmt)).first()
-        total_month = float(month_res[0] or 0.0)
-        count_month = int(month_res[1] or 0)
-
-        # 2. Total Hari Ini
-        today_stmt = select(func.sum(Expense.amount)).where(
-            *base_conditions,
-            Expense.date >= start_of_day,
-            Expense.date <= end_of_day
-        )
-        total_today = float((await session.execute(today_stmt)).scalar() or 0.0)
-
-        # 3. Budget Limit
-        budget_stmt = select(Budget).where(Budget.user_id == active_uid)
-        budget_row = (await session.execute(budget_stmt)).scalars().first()
-        budget_limit = float(budget_row.monthly_limit) if budget_row else 0.0
-        budget_percent = (total_month / budget_limit * 100) if budget_limit > 0 else 0.0
-
-        # 4. Proporsi Kategori Bulan Ini (Donut Chart)
-        cat_stmt = (
-            select(
-                func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya').label("category"),
-                func.sum(Expense.amount).label("total")
-            )
-            .where(
+            # 1. Total Bulan Ini
+            month_stmt = select(func.sum(Expense.amount), func.count(Expense.id)).where(
                 *base_conditions,
                 Expense.date >= start_of_month,
                 Expense.date <= end_of_month
             )
-            .group_by(func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya'))
-            .order_by(desc(func.sum(Expense.amount)))
-        )
-        cat_results = (await session.execute(cat_stmt)).all()
+            month_res = (await session.execute(month_stmt)).first()
+            total_month = float(month_res[0] or 0.0) if month_res and month_res[0] else 0.0
+            count_month = int(month_res[1] or 0) if month_res and month_res[1] else 0
 
-        if not cat_results:
-            # Fallback jika data bulan berjalan belum ada catatan
-            all_cat_stmt = (
-                select(
-                    func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya').label("category"),
-                    func.sum(Expense.amount).label("total")
-                )
-                .where(*base_conditions)
-                .group_by(func.coalesce(func.nullif(func.trim(Expense.category), ''), 'Lainnya'))
-                .order_by(desc(func.sum(Expense.amount)))
-            )
-            cat_results = (await session.execute(all_cat_stmt)).all()
-
-        category_labels = [r[0] for r in cat_results]
-        category_values = [float(r[1]) for r in cat_results]
-
-        # 5. Tren 7 Hari Terakhir (Bar Chart)
-        start_7_days = start_of_day - timedelta(days=6)
-        weekly_stmt = (
-            select(Expense.date, Expense.amount)
-            .where(
+            # 2. Total Hari Ini
+            today_stmt = select(func.sum(Expense.amount)).where(
                 *base_conditions,
-                Expense.date >= start_7_days,
+                Expense.date >= start_of_day,
                 Expense.date <= end_of_day
             )
-            .order_by(Expense.date.asc())
-        )
-        weekly_expenses = (await session.execute(weekly_stmt)).all()
+            total_today = float((await session.execute(today_stmt)).scalar() or 0.0)
 
-        daily_sums = {}
-        day_labels = []
-        for i in range(7):
-            day_dt = start_7_days + timedelta(days=i)
-            key = day_dt.strftime("%d/%m")
-            day_labels.append(key)
-            daily_sums[key] = 0.0
+            # 3. Budget Limit
+            budget_stmt = select(Budget).where(Budget.user_id == active_uid)
+            budget_row = (await session.execute(budget_stmt)).scalars().first()
+            budget_limit = float(budget_row.monthly_limit) if budget_row and budget_row.monthly_limit else 0.0
+            budget_percent = (total_month / budget_limit * 100) if budget_limit > 0 else 0.0
 
-        for exp_date, amount in weekly_expenses:
-            date_key = exp_date.astimezone(tz).strftime("%d/%m")
-            if date_key in daily_sums:
-                daily_sums[date_key] += float(amount)
-
-        weekly_labels = day_labels
-        weekly_values = [daily_sums[k] for k in day_labels]
-
-        # 6. Seluruh Kategori Unik dari Database (DISTINCT)
-        distinct_stmt = (
-            select(func.trim(Expense.category))
-            .where(
-                Expense.is_deleted == False,
-                Expense.category.is_not(None),
-                func.trim(Expense.category) != ""
+            # 4. Proporsi Kategori Bulan Ini (Donut Chart)
+            cat_stmt = (
+                select(Expense.category, func.sum(Expense.amount))
+                .where(
+                    *base_conditions,
+                    Expense.date >= start_of_month,
+                    Expense.date <= end_of_month
+                )
+                .group_by(Expense.category)
+                .order_by(desc(func.sum(Expense.amount)))
             )
-            .distinct()
-            .order_by(func.trim(Expense.category).asc())
-        )
-        db_cats = [c for c in (await session.execute(distinct_stmt)).scalars().all() if c]
-        all_cats = sorted(list(set(db_cats + [l for l in category_labels if l != "Lainnya"])))
-        if not all_cats:
-            all_cats = ["Makan", "Minuman", "Transport", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Edukasi", "Lainnya"]
-        elif "Lainnya" not in all_cats:
-            all_cats.append("Lainnya")
+            cat_results = (await session.execute(cat_stmt)).all()
 
-        # 7. Daftar Transaksi Terbaru (100 record)
-        recent_stmt = (
-            select(Expense)
-            .where(*base_conditions)
-            .order_by(desc(Expense.date), desc(Expense.id))
-            .limit(100)
-        )
-        expenses = (await session.execute(recent_stmt)).scalars().all()
+            cat_map = {}
+            for cat_raw, amount in cat_results:
+                c = cat_raw.strip().capitalize() if cat_raw and cat_raw.strip() else "Lainnya"
+                cat_map[c] = cat_map.get(c, 0.0) + float(amount or 0.0)
+
+            if not cat_map:
+                # Fallback jika data bulan berjalan belum ada catatan
+                all_cat_stmt = (
+                    select(Expense.category, func.sum(Expense.amount))
+                    .where(*base_conditions)
+                    .group_by(Expense.category)
+                    .order_by(desc(func.sum(Expense.amount)))
+                )
+                all_cat_results = (await session.execute(all_cat_stmt)).all()
+                for cat_raw, amount in all_cat_results:
+                    c = cat_raw.strip().capitalize() if cat_raw and cat_raw.strip() else "Lainnya"
+                    cat_map[c] = cat_map.get(c, 0.0) + float(amount or 0.0)
+
+            category_labels = list(cat_map.keys())
+            category_values = list(cat_map.values())
+
+            # 5. Tren 7 Hari Terakhir (Bar Chart)
+            start_7_days = start_of_day - timedelta(days=6)
+            weekly_stmt = (
+                select(Expense.date, Expense.amount)
+                .where(
+                    *base_conditions,
+                    Expense.date >= start_7_days,
+                    Expense.date <= end_of_day
+                )
+                .order_by(Expense.date.asc())
+            )
+            weekly_expenses = (await session.execute(weekly_stmt)).all()
+
+            daily_sums = {}
+            day_labels = []
+            for i in range(7):
+                day_dt = start_7_days + timedelta(days=i)
+                key = day_dt.strftime("%d/%m")
+                day_labels.append(key)
+                daily_sums[key] = 0.0
+
+            for exp_date, amount in weekly_expenses:
+                if not exp_date:
+                    continue
+                try:
+                    if isinstance(exp_date, str):
+                        exp_date = datetime.fromisoformat(exp_date)
+                    if exp_date.tzinfo is None:
+                        exp_date = exp_date.replace(tzinfo=tz)
+                    else:
+                        exp_date = exp_date.astimezone(tz)
+                    date_key = exp_date.strftime("%d/%m")
+                    if date_key in daily_sums:
+                        daily_sums[date_key] += float(amount or 0.0)
+                except Exception:
+                    continue
+
+            weekly_labels = day_labels
+            weekly_values = [daily_sums[k] for k in day_labels]
+
+            # 6. Seluruh Kategori Unik dari Database (DISTINCT)
+            distinct_stmt = (
+                select(Expense.category)
+                .where(
+                    Expense.is_deleted == False,
+                    Expense.category.is_not(None)
+                )
+                .distinct()
+            )
+            raw_cats = (await session.execute(distinct_stmt)).scalars().all()
+            db_cats = []
+            for c in raw_cats:
+                if c and c.strip():
+                    clean_c = c.strip().capitalize()
+                    if clean_c not in db_cats:
+                        db_cats.append(clean_c)
+
+            all_cats = sorted(list(set(db_cats + [l for l in category_labels if l != "Lainnya"])))
+            if not all_cats:
+                all_cats = ["Makan", "Minuman", "Transport", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Edukasi", "Lainnya"]
+            elif "Lainnya" not in all_cats:
+                all_cats.append("Lainnya")
+
+            # 7. Daftar Transaksi Terbaru (100 record)
+            recent_stmt = (
+                select(Expense)
+                .where(*base_conditions)
+                .order_by(desc(Expense.date), desc(Expense.id))
+                .limit(100)
+            )
+            expenses = (await session.execute(recent_stmt)).scalars().all()
+
+    except Exception as e:
+        logger.error("Error saat memproses dashboard: %s", e, exc_info=True)
+        # Nilai default fallback agar website tetap dapat dibuka tanpa crash 500
+        active_uid = 1
+        total_month = 0.0
+        count_month = 0
+        total_today = 0.0
+        budget_limit = 0.0
+        budget_percent = 0.0
+        category_labels = []
+        category_values = []
+        weekly_labels = []
+        weekly_values = []
+        all_cats = ["Makan", "Minuman", "Transport", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Edukasi", "Lainnya"]
+        expenses = []
 
     context = {
+        "request": request,
         "active_user_id": active_uid,
         "total_month": total_month,
         "count_month": count_month,
@@ -418,7 +516,7 @@ async def create_expense(data: ExpenseCreate):
         await session.commit()
         await session.refresh(expense)
 
-    return {"status": "success", "message": "Transaksi berhasil ditambahkan ૮ ˶ᵔ ᵕ ᵔ˶ ა", "id": expense.id}
+    return {"status": "success", "message": "Transaksi berhasil ditambahkan ૮ ˶ᵔ ᵕ ᵔ˶ Parse", "id": expense.id}
 
 @app.put("/api/expenses/{expense_id}")
 @app.post("/api/expenses/{expense_id}/update")
@@ -500,10 +598,10 @@ async def export_csv(user_id: int | None = None):
     for exp in expenses:
         writer.writerow([
             exp.id,
-            exp.date.strftime("%Y-%m-%d %H:%M:%S"),
-            f"{float(exp.amount):.2f}",
+            exp.date.strftime("%Y-%m-%d %H:%M:%S") if exp.date else "",
+            f"{float(exp.amount or 0):.2f}",
             exp.category or "",
-            exp.description,
+            exp.description or "",
             exp.tag or ""
         ])
 
